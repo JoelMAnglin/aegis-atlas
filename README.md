@@ -1,100 +1,112 @@
-# vinext-starter
+# Aegis Atlas
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+> Every connection. Verified.
 
-## Prerequisites
+Aegis Atlas is a zero-trust integration observability control plane for seeing how products, third-party services, and APIs connect across environments. It helps teams find broken routes, security exposure, duplicated work, idle capacity, and avoidable cost from one shared operational view.
 
-- Node.js `>=22.13.0`
+[View the private hosted demo](https://aegis-atlas-control-plane.anglinpgj.chatgpt.site)
 
-## Quick Start
+![Aegis Atlas dashboard](docs/images/dashboard-desktop.png)
+
+## Why this exists
+
+Modern organizations often operate hundreds of integrations without one reliable inventory. Ownership is fragmented, credentials are long-lived, failures are discovered downstream, and integration cost is distributed across API usage, middleware, cloud capacity, and overlapping licenses.
+
+Aegis Atlas is a reference implementation for a control plane that answers:
+
+- What connects to what, in which environment, and under whose ownership?
+- Which routes are broken, degraded, stale, or approaching credential expiry?
+- Which integrations violate least-privilege or trust-policy expectations?
+- Where are duplicate calls, idle capacity, inefficient routing, or license overlap?
+- What changed, what is the likely blast radius, and what should happen next?
+
+## Current prototype
+
+The repository contains an interactive frontend prototype with realistic demonstration data. It includes:
+
+- Live integration topology with health and trust state
+- Production, staging, and development switching
+- Break, latency, token-expiry, and stale-access findings
+- Monthly and annual cost-optimization opportunities
+- Zero-trust posture and continuous-verification indicators
+- Responsive desktop and mobile interfaces
+- Private hosted deployment and container-ready operation
+
+> [!IMPORTANT]
+> The current data is simulated. No external credentials, customer payloads, or production telemetry are collected by this version.
+
+## Product preview
+
+| Desktop | Mobile |
+| --- | --- |
+| ![Desktop dashboard](docs/images/dashboard-desktop.png) | ![Mobile dashboard](docs/images/dashboard-mobile.png) |
+
+## Quick start
+
+Requirements: Node.js 22.13 or newer.
 
 ```bash
-npm install
+npm ci
 npm run dev
+```
+
+Open `http://localhost:3000`.
+
+Production build:
+
+```bash
 npm run build
+npm start
 ```
 
-This starter does not use `wrangler.jsonc`.
+## Run beyond localhost
 
-## Included Shape
+This project is not limited to local use. The demo is already hosted privately. Three supported paths are documented in [Deployment](docs/DEPLOYMENT.md):
 
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
+1. OpenAI Sites for private, identity-gated hosting
+2. Docker on any container host
+3. Cloudflare-compatible deployment from the generated worker build
 
-## Workspace Auth Headers
+The included `Dockerfile` and GitHub build workflow make the repository portable. Real connector credentials should be supplied through the chosen platform's secret manager—not committed to this repository.
 
-Signed-in visitors receive both `oai-authenticated-user-id` and `oai-authenticated-user-email`. Private Sites require every visitor to sign in; public Sites may also have anonymous visitors, for whom neither header is present.
+## Architecture
 
-The user ID is stable for the same user on the same Site and different across Sites. Email and name are intended for display or contact purposes.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const userId = requestHeaders.get("oai-authenticated-user-id");
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```mermaid
+flowchart LR
+  A["Environment collectors"] -->|"Metadata only"| B["Ingestion gateway"]
+  B --> C["Normalize + redact"]
+  C --> D["Integration graph"]
+  C --> E["Health and cost signals"]
+  D --> F["Policy evaluator"]
+  E --> G["Break and efficiency engine"]
+  F --> H["Aegis Atlas UI"]
+  G --> H
+  H --> I["Remediation workflow"]
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+The production design deliberately separates the data plane from the control plane. Collectors send metadata, health signals, and cost counters—not credentials or business payloads. See [Architecture](docs/ARCHITECTURE.md) and [Security](docs/SECURITY.md).
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
+## Documentation
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
+- [Architecture and data model](docs/ARCHITECTURE.md)
+- [Security and zero-trust model](docs/SECURITY.md)
+- [Deployment guide](docs/DEPLOYMENT.md)
+- [Troubleshooting runbook](docs/TROUBLESHOOTING.md)
+- [Product analysis and roadmap](docs/ANALYSIS.md)
+- [Contributing](CONTRIBUTING.md)
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
+## Technology
 
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
+- React 19 and TypeScript
+- vinext / Vite
+- Tailwind CSS processing with custom design tokens
+- Cloudflare Worker-compatible server output
+- GitHub Actions build verification
 
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
+## Status
 
-## Useful Commands
+Prototype / reference implementation. The next milestone is a metadata-only connector SDK, persistent integration graph, policy engine, RBAC, and audit trail.
 
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
+## License
 
-## Learn More
-
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+No license has been selected yet. All rights are reserved by default. Add an appropriate license before accepting external contributions or reuse.
